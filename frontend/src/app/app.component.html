@@ -1,0 +1,335 @@
+<div class="app-container">
+
+  <header class="app-header">
+    <div>
+      <h1>{{ title }}</h1>
+      <p>
+        Record electricity consumption and calculate estimated carbon emissions.
+      </p>
+    </div>
+  </header>
+
+  <main class="app-content">
+
+    <!-- Role and Organization -->
+    <section class="control-card">
+
+      <div class="control-group">
+        <label for="role">Role</label>
+
+        <select
+          id="role"
+          [(ngModel)]="selectedRole"
+          (change)="onRoleChange()"
+        >
+          <option value="Client">Client</option>
+          <option value="Admin">Admin</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="organization">Organization</label>
+
+        <select
+          id="organization"
+          [(ngModel)]="selectedOrganizationId"
+          (change)="onOrganizationChange()"
+        >
+          @for (organization of organizations; track organization.id) {
+            <option [value]="organization.id">
+              {{ organization.name }}
+            </option>
+          }
+        </select>
+      </div>
+
+    </section>
+
+
+    <!-- Add Emission Record -->
+    <section class="form-card">
+
+      @if (successMessage) {
+        <div class="success-message">
+          {{ successMessage }}
+        </div>
+      }
+      
+      @if (errorMessage) {
+        <div class="error-message">
+          {{ errorMessage }}
+        </div>
+      }
+
+      <h2>Add Electricity Consumption</h2>
+
+      <form
+        [formGroup]="emissionForm"
+        (ngSubmit)="submitEmission()"
+      >
+
+        <div class="form-row">
+
+          <!-- Month -->
+          <div class="form-group">
+
+            <label for="month">
+              Month
+            </label>
+
+            <input
+              id="month"
+              type="month"
+              formControlName="month"
+            />
+
+            @if (
+              emissionForm.get('month')?.invalid &&
+              emissionForm.get('month')?.touched
+            ) {
+              <div class="error-message">
+                Month is required.
+              </div>
+            }
+
+          </div>
+
+
+          <!-- Electricity Consumption -->
+          <div class="form-group">
+
+            <label for="electricityConsumption">
+              Electricity Consumption (kWh)
+            </label>
+
+            <input
+              id="electricityConsumption"
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="Enter consumption"
+              formControlName="electricityConsumption"
+            />
+
+            @if (
+              emissionForm.get('electricityConsumption')?.invalid &&
+              emissionForm.get('electricityConsumption')?.touched
+            ) {
+
+              @if (
+                emissionForm.get('electricityConsumption')?.hasError('required')
+              ) {
+                <div class="error-message">
+                  Electricity consumption is required.
+                </div>
+              }
+
+              @if (
+                emissionForm.get('electricityConsumption')?.hasError('min')
+              ) {
+                <div class="error-message">
+                  Consumption must be greater than 0.
+                </div>
+              }
+
+            }
+
+          </div>
+
+        </div>
+
+
+        <div class="form-actions">
+
+          <button
+            type="submit"
+            class="primary-button"
+            [disabled]="isSubmitting"
+          >
+            {{ editingRecordId === null ? 'Save Record' : 'Update Record' }}
+          </button>
+        
+          @if (editingRecordId !== null) {
+            <button
+              type="button"
+              class="action-button"
+              (click)="cancelEdit()"
+            >
+              Cancel
+            </button>
+          }
+        
+        </div>
+
+      </form>
+
+    </section>
+
+
+    <!-- Formula -->
+    <section class="calculation-info">
+
+      <strong>Emission Formula:</strong>
+
+      Electricity Consumption × 0.82
+
+    </section>
+    <section class="totals-section">
+
+      <div class="totals-header">
+        <div>
+          <h2>Validated Totals</h2>
+          <p>
+            Only validated emission records are included in these totals.
+          </p>
+        </div>
+      </div>
+    
+      <div class="totals-grid">
+    
+        <div class="total-card">
+    
+          <div class="total-label">
+            Electricity Consumption
+          </div>
+    
+          <div class="total-value">
+            {{ totalElectricityConsumption | number:'1.2-2' }}
+          </div>
+    
+          <div class="total-unit">
+            kWh
+          </div>
+    
+        </div>
+    
+    
+        <div class="total-card">
+    
+          <div class="total-label">
+            CO₂ Emissions
+          </div>
+    
+          <div class="total-value">
+            {{ totalCo2Emission | number:'1.2-2' }}
+          </div>
+    
+          <div class="total-unit">
+            kg CO₂
+          </div>
+    
+        </div>
+    
+      </div>
+    
+    </section>
+    <section class="records-card">
+
+      <div class="section-header">
+        <div>
+          <h2>Emission Records</h2>
+          <p>Monthly electricity consumption and estimated CO₂ emissions.</p>
+        </div>
+      </div>
+    
+      @if (isLoading) {
+        <div class="empty-state">
+          Loading records...
+        </div>
+      } @else if (records.length > 0) {
+    
+        <div class="table-container">
+    
+          <table>
+    
+            <thead>
+              <tr>
+                <th>Organization</th>
+                <th>Month</th>
+                <th>Electricity (kWh)</th>
+                <th>CO₂ (kg)</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+    
+            <tbody>
+    
+              @for (record of records; track record.id) {
+    
+                <tr>
+    
+                  <td>{{ record.organizationName }}</td>
+    
+                  <td>
+                    {{ record.month | date:'MMM yyyy' }}
+                  </td>
+    
+                  <td>
+                    {{ record.electricityConsumption | number:'1.2-2' }}
+                  </td>
+    
+                  <td>
+                    {{ record.co2Emission | number:'1.2-2' }}
+                  </td>
+    
+                  <td>
+                    <span
+                      class="status-badge"
+                      [class.pending]="record.status === 'Pending'"
+                      [class.validated]="record.status === 'Validated'"
+                      [class.rejected]="record.status === 'Rejected'"
+                    >
+                      {{ record.status }}
+                    </span>
+                  </td>
+    
+                  <td>
+                    <button class="action-button"(click)="viewRecord(record)">
+                       View
+                    </button>
+    
+                    @if (selectedRole === 'Client') {
+                      <button class="action-button"(click)="editRecord(record)">
+                       Edit
+                      </button>
+    
+                      <button class="action-button delete-button"(click)="deleteRecord(record.id)">
+                       Delete
+                      </button>
+                    }
+    
+                    @if (selectedRole === 'Admin' && record.status === 'Pending') {
+                      <button class="action-button validate-button"(click)="validateRecord(record.id)">
+                       Validate
+                      </button>
+    
+                      <button class="action-button reject-button"(click)="rejectRecord(record.id)">
+                       Reject
+                      </button>
+                    }
+                  </td>
+    
+                </tr>
+    
+              }
+    
+            </tbody>
+    
+          </table>
+    
+        </div>
+    
+      } @else {
+    
+        <div class="empty-state">
+          No emission records found.
+        </div>
+    
+      }
+    
+    </section>
+
+  </main>
+
+</div>
